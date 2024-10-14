@@ -43,11 +43,42 @@ export const signup = async (req, res) => {
         
         res.status(201).json({success: true, token, user: newUser});
     } catch (error) {
+        console.log('Error in signup', error);
         res.status(500).json({success: false, message: error.message});
     }
 
         
             
 };
-export const login = async (req, res) => {};
-export const logout = async (req, res) => {};
+export const login = async (req, res) => {
+    const {email, password} = req.body;
+    try {
+        if (!email || !password) {
+            return res.status(400).json({success: false, message: "All fields are required"});
+        }
+        
+        const user = await User.findOne({email}).select('+password');
+        
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(401).json({success: false, message: "Invalid email or password"});
+        }
+        
+        const token = signToken(user._id);
+        
+        res.cookie('jwt', token, {
+            expires: new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000),
+            httpOnly: true,
+            sameSite: 'strict',
+            secure: process.env.NODE_ENV === 'production' ? true : false
+        });
+        
+        res.status(200).json({success: true, token, user});
+    } catch (error) {
+        console.log('Error in login', error);
+        res.status(500).json({success: false, message: error.message});
+    }
+};
+export const logout = async (req, res) => {
+    res.clearCookie('jwt');
+    res.status(200).json({success: true, message: "Logged out successfully"});
+};
